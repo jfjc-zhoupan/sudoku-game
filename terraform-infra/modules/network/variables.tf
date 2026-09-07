@@ -1,0 +1,9 @@
+variable location {}
+variable rg_name {}
+variable vnet_name {}
+variable address_space {}
+variable subnet1_cidr {}
+variable subnet2_cidr {}
+variable env_tag {}
+variable nic_name {}
+variable publicip_name {}
