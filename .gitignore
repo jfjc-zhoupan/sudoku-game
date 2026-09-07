@@ -50,11 +50,11 @@ tmp/
 # ----------------------------------------------------
 # 6. Terraform files
 # ----------------------------------------------------
-terraform/.terraform/
-terraform/*.tfstate
-terraform/*.tfstate.backup
-terraform/terraform.tfvars
-terraform/.terraform.lock.hcl
+terraform-infra/.terraform/
+terraform-infra/*.tfstate
+terraform-infra/*.tfstate.*
+terraform-infra/*.tfvars
+terraform-infra/*.backup
 
 # ----------------------------------------------------
 # 7. Docker-related (project-wide)
