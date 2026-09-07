@@ -52,9 +52,11 @@ tmp/
 # ----------------------------------------------------
 terraform-infra/.terraform/
 terraform-infra/*.tfstate
-terraform-infra/*.tfstate.*
-terraform-infra/*.tfvars
-terraform-infra/*.backup
+terraform-infra/*.tfstate.backup
+terraform-infra/*.tfstate.backup.*
+terraform-infra/.terraform.tfstate.lock.info
+terraform-infra/terraform.tfvars
+terraform-infra/terraform.tfvars.json
 
 # ----------------------------------------------------
 # 7. Docker-related (project-wide)

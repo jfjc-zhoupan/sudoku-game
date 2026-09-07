@@ -1,0 +1,3 @@
+location = "<location of your azure resources>"
+public_key_path = "<path of the public key>"
+user_data_script = "<the .sh script file name>"
