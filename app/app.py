@@ -4,13 +4,17 @@ from flask import Flask, jsonify, render_template, request
 
 from engine import DIFFICULTY, new_puzzle
 
-__version__ = "1.0.0"  # Follows Semantic Versioning (major.minor.patch)
+from version import __version__, __app_name__, __description__
 
 app = Flask(__name__)
 
 @app.get("/")
 def index():
-    return render_template("index.html", difficulties=list(DIFFICULTY.keys()))
+    return render_template(
+        "index.html",
+        difficulties=list(DIFFICULTY.keys()),
+        version = __version__
+    )
 
 
 @app.post("/api/new")
@@ -34,7 +38,8 @@ def api_new():
 def api_version():
     return jsonify({
         "version":__version__,
-        "app_name":"Sudoku Game"
+        "app_name":__app_name__,
+        "description":__description__
     })
 
 
