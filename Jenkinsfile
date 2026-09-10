@@ -35,7 +35,8 @@ pipeline {
                 cleanWs()
                 checkout scm
                 script {
-                    // Get short commit SHA for tagging
+                    sh 'ls -la app/'
+                    sh 'cat app/version.py'
                     env.GIT_COMMIT_SHORT = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
                     echo "Commit SHA: ${env.GIT_COMMIT_SHORT}"
                 }
@@ -47,11 +48,16 @@ pipeline {
         stage("Read Original Version"){
             steps{
                 script{
-                    dir(env.APP_DIR) {
                         // Read version from version.py
-                        env.ORIGINAL_VERSION = sh(returnStdout: true, script: "python -c 'from version import __version__; print(__version__)'").trim()
-                        echo "Original version: ${env.ORIGINAL_VERSION}"
+                        env.ORIGINAL_VERSION = sh(
+                        returnStdout: true,
+                        script: "cd ${env.APP_DIR} && python -c 'from version import __version__; print(__version__)'").trim()
+
+                    if (!env.ORIGINAL_VERSION) {
+                        error "Failed to read version from version.py"
                     }
+
+                    echo "Original version: ${env.ORIGINAL_VERSION}"
                 }
             }
         }
@@ -61,8 +67,12 @@ pipeline {
         stage('Bump Version'){
             steps{
                 script{
-                    dir(env.APP_DIR){
+                    if (!env.ORIGINAL_VERSION || env.ORIGINAL_VERSION == 'null') {
+                        error "ORIGINAL_VERSION is null. Fix Stage 2 first."
+                    }
+
                         sh """
+                            cd ${env.APP_DIR}
                             echo "=== Bumping Version from ${env.ORIGINAL_VERSION} ==="
 
                             # Split and increment
@@ -77,9 +87,10 @@ pipeline {
                         """
 
                         // Read the new version
-                        env.NEW_VERSION = sh(returnStdout: true, script: "python -c 'from version import __version__; print(__version__)'").trim()
+                        env.NEW_VERSION = sh(
+                        returnStdout: true,
+                        script: "cd ${env.APP_DIR} && python -c 'from version import __version__; print(__version__)'").trim()
                         echo "New version: ${env.NEW_VERSION}"
-                    }
                 }
             }
         }
@@ -89,15 +100,14 @@ pipeline {
         stage("Build Docker Image"){
             steps{
                 script{
-                    dir(env.APP_DIR) {
                         sh """
+                            cd ${env.APP_DIR}
                             echo "=== Building Docker image ==="
                             docker build -t ${env.DOCKER_IMAGE}:${env.NEW_VERSION} .
                             docker tag ${env.DOCKER_IMAGE}:${env.NEW_VERSION} ${env.DOCKER_IMAGE}:latest
 
                             echo "Successfully built image: ${env.DOCKER_IMAGE}:${env.NEW_VERSION}!"
                         """
-                    }
                 }
             }
         }
@@ -108,8 +118,8 @@ pipeline {
             steps{
                 script{
                     withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        dir(env.APP_DIR) {
                             sh """
+                                cd ${env.APP_DIR}
                                 echo "=== Logging in to Docker Hub ==="
                                 echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
 
@@ -118,7 +128,6 @@ pipeline {
                                 docker push ${env.DOCKER_IMAGE}:latest
                                 echo "Successfully pushed Docker Image!"
                             """
-                        }
                     }
                 }
             }
@@ -129,8 +138,8 @@ pipeline {
         stage("Deploy Infrastructure"){
             steps{
                 script{
-                    dir(env.TF_DIR){
                         sh """
+                            cd ${env.TF_DIR}
                             echo "=== Terraform Init ==="
                             terraform init
 
@@ -141,7 +150,6 @@ pipeline {
                             terraform apply -auto-approve
                             echo "Infrastructure deployed successfully"
                         """
-                    }
                 }
             }
         }
@@ -231,7 +239,7 @@ pipeline {
 
             // Revert Version to original
             sh """
-                echo "=== Reverting: {env.VERSION_FILE} ==="
+                echo "=== Reverting: ${env.VERSION_FILE} ==="
                 git checkout ${env.VERSION_FILE}
                 echo "Local version.py reverted."
             """
