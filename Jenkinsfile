@@ -32,7 +32,6 @@ pipeline {
                     sh 'ls -la app/'
                     sh 'cat app/version.py'
                     env.GIT_COMMIT_SHORT = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
-                    echo "Commit SHA: ${env.GIT_COMMIT_SHORT}"
                 }
             }
         }
@@ -56,10 +55,8 @@ pipeline {
                     def version = parts[1].trim()
                     version = version.replace('"', '').replace("'", '')
 
-                    // ✅ Assign to env with explicit String cast
                     env.ORIGINAL_VERSION = String.valueOf(version)
 
-                    echo "Original version: ${env.ORIGINAL_VERSION}"
                 }
             }
         }
@@ -78,10 +75,7 @@ pipeline {
                     def parts = originalVersion.split('\\.')
                     def newPatch = (parts[2] as Integer) + 1
                     def newVersion = "${parts[0]}.${parts[1]}.${newPatch}"
-
                     env.NEW_VERSION = String.valueOf(newVersion)
-
-                    echo "New version: ${env.NEW_VERSION}"
 
                     sh """
                         sed -i 's/__version__ = .*/__version__ = "${newVersion}"/' ${env.VERSION_FILE}
@@ -96,13 +90,10 @@ pipeline {
         stage("Build Docker Image"){
             steps{
                 script{
-                        sh """
+                    sh """
                             cd ${env.APP_DIR}
-                            echo "=== Building Docker image ==="
                             docker build -t ${env.DOCKER_IMAGE}:${env.NEW_VERSION} .
                             docker tag ${env.DOCKER_IMAGE}:${env.NEW_VERSION} ${env.DOCKER_IMAGE}:latest
-
-                            echo "Successfully built image: ${env.DOCKER_IMAGE}:${env.NEW_VERSION}!"
                         """
                 }
             }
@@ -114,15 +105,11 @@ pipeline {
             steps{
                 script{
                     withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                            sh """
+                        sh """
                                 cd ${env.APP_DIR}
-                                echo "=== Logging in to Docker Hub ==="
                                 echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
-
-                                echo "=== Pushing Docker Image ==="
                                 docker push ${env.DOCKER_IMAGE}:${env.NEW_VERSION}
                                 docker push ${env.DOCKER_IMAGE}:latest
-                                echo "Successfully pushed Docker Image!"
                             """
                     }
                 }
@@ -135,15 +122,15 @@ pipeline {
             steps{
                 script{
                     withCredentials([
-                        usernamePassword(
-                            credentialsId: 'dockerhub-credentials',
-                            usernameVariable: 'DOCKER_USER',
-                            passwordVariable: 'DOCKER_PASS'
-                        ),
-                        file(credentialsId: 'ssh-public-key', variable: 'SSH_PUBLIC_KEY_FILE'),
-                        file(credentialsId: 'azure-terraform-pfx', variable: 'ARM_CLIENT_CERTIFICATE_PATH'),
-                        string(credentialsId: 'azure-pfx-password', variable: 'ARM_CLIENT_CERTIFICATE_PASSWORD')
-                    ]) {
+                            usernamePassword(
+                                credentialsId: 'dockerhub-credentials',
+                                usernameVariable: 'DOCKER_USER',
+                                passwordVariable: 'DOCKER_PASS'
+                            ),
+                            file(credentialsId: 'ssh-public-key', variable: 'SSH_PUBLIC_KEY_FILE'),
+                            file(credentialsId: 'azure-terraform-pfx', variable: 'ARM_CLIENT_CERTIFICATE_PATH'),
+                            string(credentialsId: 'azure-pfx-password', variable: 'ARM_CLIENT_CERTIFICATE_PASSWORD')
+                        ]) {
                         withEnv([
                                 "TF_VAR_docker_user=${DOCKER_USER}",
                                 "TF_VAR_docker_pass=${DOCKER_PASS}",
@@ -155,19 +142,9 @@ pipeline {
                             ]) {
                             sh """
                                 cd ${env.TF_DIR}
-
-                                echo "=== Verifying environment ==="
-                                echo "TF_VAR_user_data_script: ${TF_VAR_user_data_script}"
-                                echo "TF_VAR_public_key_path: ${SSH_PUBLIC_KEY_FILE}"
-
-                                echo "=== Verify entry-script.sh exists ==="
-                                ls -la entry-script.sh
-
                                 terraform init
                                 terraform plan
-
                                 terraform apply -auto-approve
-                                echo "Infrastructure deployed successfully"
                             """
                         }
                     }
@@ -208,30 +185,22 @@ pipeline {
                         script: "cd ${env.TF_DIR} && terraform output -json"
                     ).trim()
 
-                    echo "Terraform output: ${tfOutput}"
-
-                    // ✅ Parse JSON with Groovy (no jq needed)
                     def json = new groovy.json.JsonSlurper().parseText(tfOutput)
                     def publicIp = json.vm_public_ip?.value ?: 'N/A'
 
                     env.VM_PUBLIC_IP = publicIp.toString()
-                    echo "VM Public IP: ${env.VM_PUBLIC_IP}"
-
-                    if (env.VM_PUBLIC_IP == 'null' || env.VM_PUBLIC_IP == 'N/A' || env.VM_PUBLIC_IP == '') {
-                        echo "⚠️ Warning: Could not retrieve public IP"
-                    }
                 }
             }
         }
     }
+
 
     // ============================================================
     // Post Build Actions: Rollback on Failure
     // ============================================================
     post{
         success {
-            echo "Pipeline completed successfully! Version bumped to ${env.NEW_VERSION}"
-            emailext(
+            mail(
                 subject: "CI/CD Deployment Success: ${env.APP_NAME} ${env.NEW_VERSION}",
                 mimeType: 'text/plain',
                 to: 'a572874046@163.com, raeezhao@gmail.com, a572874046@gmail.com',
@@ -243,15 +212,13 @@ pipeline {
                     Version:     ${env.NEW_VERSION}
                     Image:       ${env.DOCKER_IMAGE}:${env.NEW_VERSION}
                     URL:         http://${env.VM_PUBLIC_IP}:5000
+                    Use the URL above to test the Sudoku Game!
                     ============================================================
-                    """
+                """
             )
         }
         failure{
-            echo "Pipeline failed! Version remains at ${env.ORIGINAL_VERSION}. No changes committed."
-
-            // Send failure email
-            emailext(
+            mail(
                 subject: "CI/CD Deployment Failed: ${env.APP_NAME} - Build #${env.BUILD_NUMBER}",
                 mimeType: 'text/plain',
                 to: 'a572874046@163.com, a572874046@gmail.com',
@@ -267,8 +234,6 @@ pipeline {
             script {
                 try {
                     sh "git checkout ${env.VERSION_FILE} 2>/dev/null || echo 'Rollback skipped'"
-                } catch (Exception e) {
-                    echo "Rollback skipped: ${e.message}"
                 }
             }
         }
