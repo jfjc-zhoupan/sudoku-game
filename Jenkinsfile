@@ -32,6 +32,7 @@ pipeline {
         // ============================================================
         stage("Checkout"){
             steps{
+                cleanWs()
                 checkout scm
                 script {
                     // Get short commit SHA for tagging
