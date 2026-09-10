@@ -179,7 +179,7 @@ pipeline {
         stage('Commit Version Update'){
             steps{
                 script{
-                    withCredentials([usernamePassword(credentialsId: 'github', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+                    withCredentials([usernamePassword(credentialsId: 'github-credentials', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
                         sh """
                             echo "=== Committing version update ==="
                             git config --global user.email "jenkins@example.com"
