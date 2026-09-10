@@ -4,6 +4,7 @@ pipeline {
         DOCKER_REGISTRY = 'zhoupan970810'
         APP_NAME = 'sudoku-game'
         DOCKER_IMAGE = "${DOCKER_REGISTRY}/${APP_NAME}"
+        BRANCH_NAME = "test-branch"
 
         APP_DIR = 'app'
         TF_DIR = 'terraform-infra'
@@ -189,8 +190,8 @@ pipeline {
                             # Git and push the changed version file
                             git add ${env.VERSION_FILE}
                             git commit -m "ci/cd: version bump to ${env.NEW_VERSION}" || echo "No changes to commit"
-                            git push origin HEAD:main
-                            echo "Version update committed successfully!"
+                            git push origin HEAD:${env.BRANCH_NAME}
+                            echo "Version update committed successfully to ${env.BRANCH_NAME}!"
                         """
                     }
                 }
@@ -233,7 +234,7 @@ pipeline {
             emailext(
                 subject: "CI/CD Deployment Success: ${env.APP_NAME} ${env.NEW_VERSION}",
                 mimeType: 'text/plain',
-                to: 'a572874046@163.com, raeezhao@gmail.com',
+                to: 'a572874046@163.com, raeezhao@gmail.com, a572874046@gmail.com',
                 body: """
                     ============================================================
                     Deployment Complete!
@@ -253,7 +254,7 @@ pipeline {
             emailext(
                 subject: "CI/CD Deployment Failed: ${env.APP_NAME} - Build #${env.BUILD_NUMBER}",
                 mimeType: 'text/plain',
-                to: 'a572874046@163.com',
+                to: 'a572874046@163.com, a572874046@gmail.com',
                 body: """
                 ============================================================
                 Pipeline Failed!
