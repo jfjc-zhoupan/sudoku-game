@@ -50,7 +50,7 @@ pipeline {
                 script{
                     env.ORIGINAL_VERSION = sh(
                         returnStdout: true,
-                        script: "sed -n 's/.*__version__ = \"\\(.*\\)\".*/\\1/p' ${env.VERSION_FILE}").trim()
+                        script: '''awk -F'"' '/__version__/ {print $2}' app/version.py''').trim()
 
                     if (!env.ORIGINAL_VERSION) {
                         error "Could not read version from ${env.VERSION_FILE}"
