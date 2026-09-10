@@ -48,13 +48,14 @@ pipeline {
         stage("Read Original Version"){
             steps{
                 script{
-                        // Read version from version.py
-                        env.ORIGINAL_VERSION = sh(
-                        returnStdout: true,
-                        script: "cd ${env.APP_DIR} && python -c 'from version import __version__; print(__version__)'").trim()
+                    def versionFile = readFile("${env.VERSION_FILE}")
 
-                    if (!env.ORIGINAL_VERSION) {
-                        error "Failed to read version from version.py"
+                    def matcher = versionFile =~ /__version__\s*=\s*"([^"]+)"/
+                    if (matcher.find()) {
+                        env.ORIGINAL_VERSION = matcher.group(1)
+                    }
+                    else {
+                        error "Could not find __version__ in ${env.VERSION_FILE}"
                     }
 
                     echo "Original version: ${env.ORIGINAL_VERSION}"
