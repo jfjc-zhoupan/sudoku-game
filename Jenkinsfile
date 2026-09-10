@@ -147,6 +147,7 @@ pipeline {
                                 "TF_VAR_docker_user=${DOCKER_USER}",
                                 "TF_VAR_docker_pass=${DOCKER_PASS}",
                                 "TF_VAR_public_key_path=${SSH_PUBLIC_KEY_FILE}",
+                                "TF_VAR_user_data_script=entry-script.sh",
                                 "ARM_CLIENT_ID=fcb81694-c5c2-4d1d-b349-665f8fb040d0",
                                 "ARM_TENANT_ID=964f9745-bd07-4d1d-9a24-40f9bc141cc4",
                                 "ARM_SUBSCRIPTION_ID=4b4511ba-165a-4df2-be28-75937cfe1031"
@@ -155,10 +156,11 @@ pipeline {
                                 cd ${env.TF_DIR}
 
                                 echo "=== Verifying environment ==="
-                                echo "ARM_CLIENT_ID: ${ARM_CLIENT_ID}"
-                                echo "ARM_TENANT_ID: ${ARM_TENANT_ID}"
-                                echo "ARM_SUBSCRIPTION_ID: ${ARM_SUBSCRIPTION_ID}"
-                                echo "Certificate path: ${ARM_CLIENT_CERTIFICATE_PATH}"
+                                echo "TF_VAR_user_data_script: ${TF_VAR_user_data_script}"
+                                echo "TF_VAR_public_key_path: ${SSH_PUBLIC_KEY_FILE}"
+
+                                echo "=== Verify entry-script.sh exists ==="
+                                ls -la entry-script.sh
 
                                 terraform init
                                 terraform plan
