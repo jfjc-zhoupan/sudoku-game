@@ -20,9 +20,11 @@ pipeline {
         stage("Checkout"){
             steps{
                 cleanWs(
-                    [pattern: '**/terraform.tfstate', type: 'EXCLUDE'],
-                    [pattern: '**/terraform.tfstate.backup', type: 'EXCLUDE'],
-                    [pattern: '**/.terraform/**', type: 'EXCLUDE']
+                    patterns: [
+                        [pattern: '**/terraform.tfstate', type: 'EXCLUDE'],
+                        [pattern: '**/terraform.tfstate.backup', type: 'EXCLUDE'],
+                        [pattern: '**/.terraform/**', type: 'EXCLUDE']
+                    ]
                 )
                 checkout scm
                 script {
