@@ -1,27 +1,16 @@
 pipeline {
     agent any
     environment {
-         // ============================================================
-         // Project paths
-         // ============================================================
-         APP_DIR = 'app'
-         TF_DIR = 'terraform-infra'
+        DOCKER_REGISTRY = 'zhoupan970810'
+        APP_NAME = 'sudoku-game'
+        DOCKER_IMAGE = "${DOCKER_REGISTRY}/${APP_NAME}"
 
-         // ============================================================
-         // Docker registry settings
-         // ============================================================
-         DOCKER_REGISTRY = 'zhoupan970810'
-         APP_NAME = 'sudoku-game'
-         DOCKER_IMAGE = "${DOCKER_REGISTRY}/${APP_NAME}"
+        APP_DIR = 'app'
+        TF_DIR = 'terraform-infra'
 
-         // ============================================================
-         // Version file location
-         // ============================================================
-         VERSION_FILE = "${APP_DIR}/version.py"
+        VERSION_FILE = "${APP_DIR}/version.py"
 
-        // ============================================================
-        // Store original version for rollback
-        // ============================================================
+        TF_VAR_location = 'eastasia'
     }
 
     stages {
@@ -30,7 +19,11 @@ pipeline {
         // ============================================================
         stage("Checkout"){
             steps{
-                cleanWs()
+                cleanWs(
+                    [pattern: '**/terraform.tfstate', type: 'EXCLUDE'],
+                    [pattern: '**/terraform.tfstate.backup', type: 'EXCLUDE'],
+                    [pattern: '**/.terraform/**', type: 'EXCLUDE']
+                )
                 checkout scm
                 script {
                     sh 'ls -la app/'
@@ -138,18 +131,36 @@ pipeline {
         stage("Deploy Infrastructure"){
             steps{
                 script{
-                        sh """
-                            cd ${env.TF_DIR}
-                            echo "=== Terraform Init ==="
-                            terraform init
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: 'dockerhub-credentials',
+                            usernameVariable: 'DOCKER_USER',
+                            passwordVariable: 'DOCKER_PASS'
+                        ),
+                        file(credentialsId: 'ssh-public-key', variable: 'SSH_PUBLIC_KEY_FILE')
+                    ]) {
+                        withEnv([
+                                "TF_VAR_docker_user=${DOCKER_USER}",
+                                "TF_VAR_docker_pass=${DOCKER_PASS}",
+                                "TF_VAR_public_key_path=${SSH_PUBLIC_KEY_FILE}"
+                            ]) {
+                            sh """
+                                cd ${env.TF_DIR}
 
-                            echo "=== Terraform Plan ==="
-                            terraform plan
+                                echo "=== Verifying environment variables ==="
+                                echo "TF_VAR_docker_user: ${DOCKER_USER}"
+                                echo "TF_VAR_public_key_path: ${SSH_PUBLIC_KEY_FILE}"
+                                echo "=== Public key content ==="
+                                cat ${SSH_PUBLIC_KEY_FILE}
 
-                            echo "=== Terraform Apply ==="
-                            terraform apply -auto-approve
-                            echo "Infrastructure deployed successfully"
-                        """
+                                terraform init
+                                terraform plan
+
+                                terraform apply -auto-approve
+                                echo "Infrastructure deployed successfully"
+                            """
+                        }
+                    }
                 }
             }
         }
