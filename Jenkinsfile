@@ -202,16 +202,22 @@ pipeline {
         stage('Get Public IP'){
             steps{
                 script{
-                    env.VM_PUBLIC_IP = sh(
+                    def tfOutput = sh(
                         returnStdout: true,
-                        script: "cd ${env.TF_DIR} && terraform output -json | jq -r '.vm_public_ip.value'"
+                        script: "cd ${env.TF_DIR} && terraform output -json"
                     ).trim()
 
+                    echo "Terraform output: ${tfOutput}"
+
+                    // ✅ Parse JSON with Groovy (no jq needed)
+                    def json = new groovy.json.JsonSlurper().parseText(tfOutput)
+                    def publicIp = json.vm_public_ip?.value ?: 'N/A'
+
+                    env.VM_PUBLIC_IP = publicIp.toString()
+                    echo "VM Public IP: ${env.VM_PUBLIC_IP}"
+
                     if (env.VM_PUBLIC_IP == 'null' || env.VM_PUBLIC_IP == 'N/A' || env.VM_PUBLIC_IP == '') {
-                        echo "Warning: Could not retrieve public IP"
-                    }
-                    else {
-                        echo "VM Public IP: ${env.VM_PUBLIC_IP}"
+                        echo "⚠️ Warning: Could not retrieve public IP"
                     }
                 }
             }
