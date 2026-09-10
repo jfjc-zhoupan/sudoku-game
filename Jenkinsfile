@@ -48,9 +48,12 @@ pipeline {
         stage("Read Original Version"){
             steps{
                 script{
+                    writeFile file: 'read_version.sh', text: '''#!/bin/bash
+                    awk -F'"' '/__version__/ {print $2}' app/version.py
+
                     env.ORIGINAL_VERSION = sh(
                         returnStdout: true,
-                        script: '''awk -F'"' '/__version__/ {print $2}' app/version.py''').trim()
+                        script: 'bash read_version.sh').trim()
 
                     if (!env.ORIGINAL_VERSION) {
                         error "Could not read version from ${env.VERSION_FILE}"
