@@ -215,13 +215,6 @@ pipeline {
         failure{
             echo "Pipeline failed! Version remains at ${env.ORIGINAL_VERSION}. No changes committed."
 
-            // Revert Version to original
-            sh """
-                echo "=== Reverting: {env.VERSION_FILE} ==="
-                git checkout ${env.VERSION_FILE}
-                echo "Local version.py reverted."
-            """
-
             // Send failure email
             emailext(
                 subject: "CI/CD Deployment Failed: ${env.APP_NAME} - Build #${env.BUILD_NUMBER}",
@@ -235,6 +228,13 @@ pipeline {
                 ============================================================
                 """
             )
+
+            // Revert Version to original
+            sh """
+                echo "=== Reverting: {env.VERSION_FILE} ==="
+                git checkout ${env.VERSION_FILE}
+                echo "Local version.py reverted."
+            """
         }
         always {
             cleanWs(
