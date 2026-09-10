@@ -48,14 +48,12 @@ pipeline {
         stage("Read Original Version"){
             steps{
                 script{
-                    def versionFile = readFile("${env.VERSION_FILE}")
+                    env.ORIGINAL_VERSION = sh(
+                        returnStdout: true,
+                        script: "sed -n 's/.*__version__ = \"\\(.*\\)\".*/\\1/p' ${env.VERSION_FILE}").trim()
 
-                    def matcher = versionFile =~ /__version__\s*=\s*"([^"]+)"/
-                    if (matcher.find()) {
-                        env.ORIGINAL_VERSION = matcher.group(1)
-                    }
-                    else {
-                        error "Could not find __version__ in ${env.VERSION_FILE}"
+                    if (!env.ORIGINAL_VERSION) {
+                        error "Could not read version from ${env.VERSION_FILE}"
                     }
 
                     echo "Original version: ${env.ORIGINAL_VERSION}"
@@ -72,26 +70,18 @@ pipeline {
                         error "ORIGINAL_VERSION is null. Fix Stage 2 first."
                     }
 
-                        sh """
-                            cd ${env.APP_DIR}
-                            echo "=== Bumping Version from ${env.ORIGINAL_VERSION} ==="
+                    def parts = env.ORIGINAL_VERSION.split('\\.')
+                    def newPatch = (parts[2] as Integer) + 1
+                    env.NEW_VERSION = "${parts[0]}.${parts[1]}.${newPatch}"
 
-                            # Split and increment
-                            MAJOR=\$(echo ${env.ORIGINAL_VERSION} | cut -d. -f1)
-                            MINOR=\$(echo ${env.ORIGINAL_VERSION} | cut -d. -f2)
-                            PATCH=\$(echo ${env.ORIGINAL_VERSION} | cut -d. -f3)
-                            NEW_PATCH=\$((PATCH + 1))
-                            NEW_VERSION="\${MAJOR}.\${MINOR}.\${NEW_PATCH}"
+                    echo "New version: ${env.NEW_VERSION}"
 
-                            echo "New version: \$NEW_VERSION"
-                            sed -i "s/__version__ = .*/__version__ = \"\$NEW_VERSION\"/" version.py
-                        """
-
-                        // Read the new version
-                        env.NEW_VERSION = sh(
-                        returnStdout: true,
-                        script: "cd ${env.APP_DIR} && python -c 'from version import __version__; print(__version__)'").trim()
-                        echo "New version: ${env.NEW_VERSION}"
+                    sh """
+                        cd ${env.APP_DIR}
+                        sed -i 's/__version__ = .*/__version__ = "${env.NEW_VERSION}"/' version.py
+                        echo "=== Updated version.py ==="
+                        grep '__version__' version.py
+                    """
                 }
             }
         }
