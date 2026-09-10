@@ -49,7 +49,8 @@ pipeline {
             steps{
                 script{
                     writeFile file: 'read_version.sh', text: '''#!/bin/bash
-                    awk -F'"' '/__version__/ {print $2}' app/version.py
+                    grep "__version__" app/version.py | cut -d'"' -f2
+                    '''
 
                     env.ORIGINAL_VERSION = sh(
                         returnStdout: true,
