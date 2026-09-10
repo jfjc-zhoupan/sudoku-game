@@ -22,8 +22,6 @@ pipeline {
         // ============================================================
         // Store original version for rollback
         // ============================================================
-        ORIGINAL_VERSION = ''
-        NEW_VERSION = ''
     }
 
     stages {
@@ -50,7 +48,6 @@ pipeline {
                 script{
                     def versionContent = readFile("${env.VERSION_FILE}")
 
-                    // Find the version line
                     def versionLine = versionContent.readLines().find { line ->
                         line.trim().startsWith('__version__')
                     }
@@ -59,15 +56,12 @@ pipeline {
                         error "Could not find __version__ in ${env.VERSION_FILE}"
                     }
 
-                    // Extract version
                     def parts = versionLine.split('=')
                     def version = parts[1].trim()
                     version = version.replace('"', '').replace("'", '')
 
-                    echo "Extracted version: [${version}]"
-
-                    // Force string conversion with "${...}"
-                    env.ORIGINAL_VERSION = "${version}"
+                    // ✅ Assign to env with explicit String cast
+                    env.ORIGINAL_VERSION = String.valueOf(version)
 
                     echo "Original version: ${env.ORIGINAL_VERSION}"
                 }
@@ -79,21 +73,23 @@ pipeline {
         stage('Bump Version'){
             steps{
                 script{
-                    if (!env.ORIGINAL_VERSION || env.ORIGINAL_VERSION == 'null') {
+                    def originalVersion = env.ORIGINAL_VERSION
+
+                    if (!originalVersion || originalVersion == 'null') {
                         error "ORIGINAL_VERSION is null. Fix Stage 2 first."
                     }
 
-                    def parts = env.ORIGINAL_VERSION.split('\\.')
+                    def parts = originalVersion.split('\\.')
                     def newPatch = (parts[2] as Integer) + 1
-                    env.NEW_VERSION = "${parts[0]}.${parts[1]}.${newPatch}"
+                    def newVersion = "${parts[0]}.${parts[1]}.${newPatch}"
+
+                    env.NEW_VERSION = String.valueOf(newVersion)
 
                     echo "New version: ${env.NEW_VERSION}"
 
                     sh """
-                        cd ${env.APP_DIR}
-                        sed -i 's/__version__ = .*/__version__ = "${env.NEW_VERSION}"/' version.py
-                        echo "=== Updated version.py ==="
-                        grep '__version__' version.py
+                        sed -i 's/__version__ = .*/__version__ = "${newVersion}"/' ${env.VERSION_FILE}
+                        grep __version__ ${env.VERSION_FILE}
                     """
                 }
             }
