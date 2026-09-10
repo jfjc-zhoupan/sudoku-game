@@ -31,5 +31,8 @@ resource "azurerm_linux_virtual_machine" "example" {
     environment = var.env_tag
   }
 
-  custom_data = base64encode(file(var.user_data_script))
+  custom_data = base64encode(templatefile("${path.root}/${var.user_data_script}",{
+    docker_user = var.docker_user
+    docker_pass = var.docker_pass
+  }))
 }

@@ -34,5 +34,8 @@ module "vm-webapp" {
     nic_id = module.network-webapp.nic_id
     public_key = file(var.public_key_path)
     env_tag = "dev"
+    
     user_data_script = var.user_data_script
+    docker_user = var.docker_user
+    docker_pass = var.docker_pass
 }
