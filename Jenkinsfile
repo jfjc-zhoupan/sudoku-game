@@ -50,21 +50,40 @@ pipeline {
                 script{
                     def versionContent = readFile("${env.VERSION_FILE}")
 
-                    def versionLine = null
-                    for (line in versionContent.readLines()) {
-                        if (line.contains('__version__')) {
-                            versionLine = line
-                            break
-                        }
+                    // Debug: Print the raw content
+                    echo "=== RAW FILE CONTENT ==="
+                    echo versionContent
+                    echo "=== END RAW CONTENT ==="
+
+                    // Debug: Print lines
+                    def lines = versionContent.readLines()
+                    echo "Total lines: ${lines.size()}"
+
+                    // Debug: Print each line
+                    lines.eachWithIndex { line, idx ->
+                        echo "Line ${idx}: [${line}]"
                     }
+
+                    // Find the version line
+                    def versionLine = lines.find { line ->
+                        line.trim().startsWith('__version__')
+                    }
+
+                    echo "Found versionLine: [${versionLine}]"
 
                     if (versionLine == null) {
                         error "Could not find __version__ in ${env.VERSION_FILE}"
                     }
 
+                    // Extract version
                     def parts = versionLine.split('=')
+                    echo "Parts count: ${parts.size()}"
+                    echo "Parts[1]: [${parts[1]}]"
+
                     def version = parts[1].trim()
                     version = version.replace('"', '').replace("'", '')
+
+                    echo "Extracted version: [${version}]"
 
                     env.ORIGINAL_VERSION = version
                     echo "Original version: ${env.ORIGINAL_VERSION}"
