@@ -235,6 +235,9 @@ pipeline {
                 try {
                     sh "git checkout ${env.VERSION_FILE} 2>/dev/null || echo 'Rollback skipped'"
                 }
+                catch (Exception e) {
+                    echo "Rollback skipped: ${e.message}"
+                }
             }
         }
         always {
