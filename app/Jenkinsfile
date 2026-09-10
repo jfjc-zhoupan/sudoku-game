@@ -73,9 +73,6 @@ pipeline {
 
                             echo "New version: \$NEW_VERSION"
                             sed -i "s/__version__ = .*/__version__ = \"\$NEW_VERSION\"/" version.py
-
-                            # Store NEW_VERSION for later
-                            echo "NEW_VERSION=\$NEW_VERSION" > version_env.txt
                         """
 
                         // Read the new version
@@ -162,7 +159,7 @@ pipeline {
 
                             # Git and push the changed version file
                             git add ${env.VERSION_FILE}
-                            git commit -m "ci/cd: version bump to ${env.NEW_VERSION}"
+                            git commit -m "ci/cd: version bump to ${env.NEW_VERSION}" || echo "No changes to commit"
                             git push origin HEAD:main
                             echo "Version update committed successfully!"
                         """
@@ -171,22 +168,22 @@ pipeline {
             }
         }
         // ============================================================
-        // Stage 8: Deployment Info
+        // Stage 8: Get public IP
         // ============================================================
-        stage('Deployment Info'){
+        stage('Get Public IP'){
             steps{
                 script{
-                    def publicIp = sh(returnStdout: true, script: "cd ${env.TF_DIR} && terraform output -json | jq -r '.vm_public_ip.value' 2>/dev/null || echo 'N/A'").trim()
-                    echo """
-                    ============================================================
-                    Deployment Complete!
-                    ============================================================
-                    Application: ${env.APP_NAME}
-                    Version:     ${env.NEW_VERSION}
-                    Image:       ${env.DOCKER_IMAGE}:${env.NEW_VERSION}
-                    URL:         http://${publicIp}:5000
-                    ============================================================
-                    """
+                    env.VM_PUBLIC_IP = sh(
+                        returnStdout: true,
+                        script: "cd ${env.TF_DIR} && terraform output -json | jq -r '.vm_public_ip.value'"
+                    ).trim()
+
+                    if (env.VM_PUBLIC_IP == 'null' || env.VM_PUBLIC_IP == 'N/A' || env.VM_PUBLIC_IP == '') {
+                        echo "Warning: Could not retrieve public IP"
+                    }
+                    else {
+                        echo "VM Public IP: ${env.VM_PUBLIC_IP}"
+                    }
                 }
             }
         }
@@ -198,21 +195,54 @@ pipeline {
     post{
         success {
             echo "Pipeline completed successfully! Version bumped to ${env.NEW_VERSION}"
+            emailext(
+                subject: "CI/CD Deployment Success: ${env.APP_NAME} ${env.NEW_VERSION}",
+                mimeType: 'text/plain',
+                to: 'a572874046@163.com, raeezhao@gmail.com',
+                body: """
+                    ============================================================
+                    Deployment Complete!
+                    ============================================================
+                    Application: ${env.APP_NAME}
+                    Version:     ${env.NEW_VERSION}
+                    Image:       ${env.DOCKER_IMAGE}:${env.NEW_VERSION}
+                    URL:         http://${env.VM_PUBLIC_IP}:5000
+                    ============================================================
+                    """
+            )
         }
         failure{
             echo "Pipeline failed! Version remains at ${env.ORIGINAL_VERSION}. No changes committed."
 
             // Revert Version to original
-            dir(env.APP_DIR){
-                sh """
-                    echo "=== Reverting version.py to ${env.ORIGINAL_VERSION} ==="
-                    git checkout ${env.VERSION_FILE}
-                    echo "Local version.py reverted."
+            sh """
+                echo "=== Reverting: {env.VERSION_FILE} ==="
+                git checkout ${env.VERSION_FILE}
+                echo "Local version.py reverted."
+            """
+
+            // Send failure email
+            emailext(
+                subject: "CI/CD Deployment Failed: ${env.APP_NAME} - Build #${env.BUILD_NUMBER}",
+                mimeType: 'text/plain',
+                to: 'a572874046@163.com',
+                body: """
+                ============================================================
+                Pipeline Failed!
+                ============================================================
+                details
+                ============================================================
                 """
-            }
+            )
         }
         always {
-            cleanWs()
+            cleanWs(
+                patterns: [
+                    [pattern: '**/terraform.tfstate', type: 'EXCLUDE'],
+                    [pattern: '**/terraform.tfstate.backup', type: 'EXCLUDE'],
+                    [pattern: '**/.terraform/**', type: 'EXCLUDE']
+                ]
+            )
         }
     }
 }
