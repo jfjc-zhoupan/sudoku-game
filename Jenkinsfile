@@ -48,18 +48,25 @@ pipeline {
         stage("Read Original Version"){
             steps{
                 script{
-                    writeFile file: 'read_version.sh', text: '''#!/bin/bash
-                    grep "__version__" app/version.py | cut -d'"' -f2
-                    '''
+                    def versionContent = readFile("${env.VERSION_FILE}")
 
-                    env.ORIGINAL_VERSION = sh(
-                        returnStdout: true,
-                        script: 'bash read_version.sh').trim()
-
-                    if (!env.ORIGINAL_VERSION) {
-                        error "Could not read version from ${env.VERSION_FILE}"
+                    def versionLine = null
+                    for (line in versionContent.readLines()) {
+                        if (line.contains('__version__')) {
+                            versionLine = line
+                            break
+                        }
                     }
 
+                    if (versionLine == null) {
+                        error "Could not find __version__ in ${env.VERSION_FILE}"
+                    }
+
+                    def parts = versionLine.split('=')
+                    def version = parts[1].trim()
+                    version = version.replace('"', '').replace("'", '')
+
+                    env.ORIGINAL_VERSION = version
                     echo "Original version: ${env.ORIGINAL_VERSION}"
                 }
             }
