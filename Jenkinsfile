@@ -141,7 +141,7 @@ pipeline {
                         ),
                         file(credentialsId: 'ssh-public-key', variable: 'SSH_PUBLIC_KEY_FILE'),
                         file(credentialsId: 'azure-terraform-pfx', variable: 'ARM_CLIENT_CERTIFICATE_PATH'),
-                        file(credentialsId: 'azure-pfx-password', variable: 'ARM_CLIENT_CERTIFICATE_PASSWORD')
+                        string(credentialsId: 'azure-pfx-password', variable: 'ARM_CLIENT_CERTIFICATE_PASSWORD')
                     ]) {
                         withEnv([
                                 "TF_VAR_docker_user=${DOCKER_USER}",
